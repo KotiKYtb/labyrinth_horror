@@ -43,6 +43,7 @@
       this.bindUI();
       this.bindInput();
       this.applySettings();
+      this.updateAudioHint('none');
       this.buildMenuScene();
       this.showScreen('menu');
       this.lastFrame = performance.now();
@@ -108,11 +109,36 @@
     initAudio() {
       if (!this.audioReady) {
         this.audio.init();
-        this.audioReady = true;
-        this.audio.setVolume(this.save.settings.volume);
-        this.audio.setMuted(this.save.settings.muted);
+        if (this.audio.ready) {
+          this.audioReady = true;
+          this.audio.setVolume(this.save.settings.volume);
+          this.audio.setMuted(this.save.settings.muted);
+          this.audio.onStateChange = (s) => this.updateAudioHint(s);
+        }
       }
       this.audio.resume();
+      this.updateAudioHint(this.audio.ctx ? this.audio.ctx.state : 'none');
+    }
+
+    // Badge « ACTIVER LE SON » : visible tant que le navigateur n'a pas autorisé l'audio.
+    updateAudioHint(state) {
+      const hint = LH.el('audio-hint');
+      if (!hint) return;
+      if (this.audio && this.audio.supported === false) {
+        hint.classList.add('visible', 'unsupported');
+        hint.textContent = 'AUDIO INDISPONIBLE';
+        return;
+      }
+      hint.classList.remove('unsupported');
+      const st = state || (this.audio.ctx ? this.audio.ctx.state : 'none');
+      // Une pause volontaire met le contexte en veille : ce n'est pas un blocage.
+      const onPurpose = this.state === 'paused' || this.state === 'dying';
+      const running = st === 'running';
+      const show = !this.save.settings.muted && !running && !onPurpose;
+      hint.classList.toggle('visible', show);
+      hint.textContent = this.audioReady && !running
+        ? 'SON EN PAUSE — CLIQUER POUR ACTIVER'
+        : 'ACTIVER LE SON';
     }
 
     applySettings() {
@@ -519,6 +545,7 @@
 
     beginPlay() {
       if (this.state !== 'intro') return;
+      this.initAudio();
       this.state = 'playing';
       document.body.dataset.state = 'playing';
       this.hideScreens();
@@ -1365,7 +1392,9 @@
     toggleMute() {
       this.save.settings.muted = !this.save.settings.muted;
       this.audio.setMuted(this.save.settings.muted);
+      if (!this.save.settings.muted) this.initAudio();
       this.updateMuteButton();
+      this.updateAudioHint(this.audio.ctx ? this.audio.ctx.state : 'none');
       this.persist();
     }
 
@@ -1475,7 +1504,8 @@
         if (!el) return;
         el.addEventListener('click', (e) => {
           e.preventDefault();
-          if (this.audioReady) this.audio.click();
+          this.initAudio();
+          if (this.audio.ready) this.audio.click();
           fn();
         });
       };
@@ -1503,6 +1533,7 @@
       click('btn-levels-back', () => this.showScreen('menu'));
       click('btn-howto-back', () => this.showScreen('menu'));
       click('btn-sound', () => { this.initAudio(); this.toggleMute(); });
+      click('btn-sound-test', () => { this.initAudio(); this.audio.soundTest(); });
       click('btn-view', () => { this.setView(!this.save.settings.firstPerson); });
       const fpToggle = LH.el('fp-toggle');
       if (fpToggle) fpToggle.addEventListener('change', () => this.setView(fpToggle.checked));
@@ -1562,10 +1593,37 @@
         });
       }
 
-      // premier geste : déblocage audio
+      // Déblocage audio : tout geste réveille le contexte (les navigateurs le suspendent
+      // tant qu'aucune interaction n'a eu lieu). On garde les écouteurs actifs pour
+      // rattraper les suspensions d'iOS/Safari après un changement d'onglet.
       const unlock = () => { this.initAudio(); };
-      document.addEventListener('pointerdown', unlock, { once: true });
-      document.addEventListener('keydown', unlock, { once: true });
+      ['pointerdown', 'keydown', 'touchstart'].forEach((type) => {
+        document.addEventListener(type, unlock, { capture: true, passive: true });
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          this.audio.resume();
+          this.updateAudioHint(this.audio.ctx ? this.audio.ctx.state : 'none');
+        }
+      });
+      window.addEventListener('focus', () => this.audio.resume());
+
+      const hint = LH.el('audio-hint');
+      if (hint) {
+        hint.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.save.settings.muted) {
+            this.save.settings.muted = false;
+            this.audio.setMuted(false);
+            this.updateMuteButton();
+            this.persist();
+          }
+          this.initAudio();
+          if (this.audio.ready) this.audio.soundTest();
+          this.updateAudioHint(this.audio.ctx ? this.audio.ctx.state : 'none');
+        });
+      }
     }
   }
 

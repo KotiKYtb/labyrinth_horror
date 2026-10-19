@@ -55,6 +55,49 @@ button { font-family: inherit; }
   z-index: 0;
 }
 
+/* ------------------------------------------------------------ AUDIO HINT */
+.audio-hint {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 85;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: rgba(8, 6, 6, 0.9);
+  color: var(--bone);
+  border: 1px solid rgba(224, 43, 43, 0.55);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  animation: audioHintPulse 2.4s ease-in-out infinite;
+}
+.audio-hint.visible { display: inline-flex; }
+.audio-hint::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blood-bright);
+  box-shadow: 0 0 10px var(--blood-bright);
+}
+.audio-hint:hover { color: #fff; border-color: var(--blood-bright); }
+.audio-hint.unsupported {
+  animation: none;
+  pointer-events: none;
+  opacity: 0.7;
+  border-color: rgba(233, 227, 213, 0.25);
+  color: var(--ash);
+}
+.audio-hint.unsupported::before { background: var(--ash); box-shadow: none; }
+@keyframes audioHintPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(157, 18, 24, 0.25); }
+  50% { box-shadow: 0 0 30px rgba(224, 43, 43, 0.5); }
+}
+
 /* ------------------------------------------------------------ FX */
 #fx-layer {
   position: fixed;

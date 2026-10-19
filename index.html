@@ -13,6 +13,9 @@
 <div id="app">
   <canvas id="scene"></canvas>
 
+  <!-- Bandeau audio : visible tant que le navigateur n'a pas débloqué le son -->
+  <button id="audio-hint" class="audio-hint" type="button">ACTIVER LE SON</button>
+
   <div id="fx-layer" aria-hidden="true">
     <canvas id="fx"></canvas>
     <div id="grain"></div>
@@ -175,6 +178,7 @@
         <input id="fp-toggle" type="checkbox">
       </label>
       <div class="panel-actions">
+        <button id="btn-sound-test" class="btn" type="button">TESTER LE SON</button>
         <button id="btn-reset" class="btn danger" type="button">EFFACER LA PROGRESSION</button>
         <button id="btn-options-back" class="btn" type="button">← RETOUR</button>
       </div>

@@ -14,12 +14,16 @@
       this.shaper = null;
       this.tensionValue = 0;
       this.reverb = null;
+      this.output = null;
+      this.safety = null;
+      this.supported = true;
+      this.onStateChange = null;
     }
 
     init() {
       if (this.ready) { this.resume(); return; }
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
+      if (!AC) { this.supported = false; this._emitState(); return; }
       try {
         const ctx = new AC();
         this.ctx = ctx;
@@ -34,8 +38,22 @@
         this.limiter.attack.value = 0.003;
         this.limiter.release.value = 0.25;
 
-        this.master.connect(this.limiter);
-        this.limiter.connect(ctx.destination);
+        // Étage de sortie : les sources procédurales sont volontairement basses,
+        // ce gain de rattrapage rend le jeu audible au casque comme aux haut-parleurs.
+        // Il est placé AVANT le limiteur pour que les sons forts (cris, mort) restent sous 0 dBFS.
+        this.output = ctx.createGain();
+        this.output.gain.value = 2.8;
+        this.master.connect(this.output);
+        this.output.connect(this.limiter);
+
+        // Marge de sécurité : garantit qu'aucune crête ne sature la sortie.
+        this.safety = ctx.createGain();
+        this.safety.gain.value = 0.88;
+        this.limiter.connect(this.safety);
+        this.safety.connect(ctx.destination);
+
+        // Safari/iOS peut suspendre le contexte : on prévient l'interface
+        ctx.onstatechange = () => this._emitState();
 
         this.sfx = ctx.createGain();
         this.sfx.gain.value = 0.9;
@@ -82,14 +100,45 @@
         this.ready = true;
       } catch (e) {
         console.warn('Audio indisponible', e);
+        this.ready = false;
+        this.supported = false;
       }
+      this._emitState();
     }
 
+    // Réveille un contexte suspendu par le navigateur (politique d'autoplay).
     resume() {
-      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      if (!this.ctx) return Promise.resolve();
+      if (this.ctx.state === 'suspended') {
+        const p = this.ctx.resume();
+        if (p && typeof p.then === 'function') {
+          return p.then(() => this._emitState()).catch(() => this._emitState());
+        }
+      }
+      this._emitState();
+      return Promise.resolve();
     }
     suspend() {
       if (this.ctx && this.ctx.state === 'running') this.ctx.suspend();
+      this._emitState();
+    }
+
+    _emitState() {
+      if (typeof this.onStateChange !== 'function') return;
+      try {
+        this.onStateChange(this.ctx ? this.ctx.state : 'none');
+      } catch (e) { /* interface indisponible */ }
+    }
+
+    // Test manuel depuis les options : tonnerre montant puis chuchotements stéréo.
+    soundTest() {
+      if (!this.ready) this.init();
+      this.resume();
+      if (!this.ready) return false;
+      this.unlock();
+      setTimeout(() => this.whisper(-0.75), 1700);
+      setTimeout(() => this.whisper(0.75), 2500);
+      return true;
     }
 
     setVolume(v) {
@@ -104,6 +153,8 @@
     }
 
     _panner(pan) {
+      // createStereoPanner manque sur d'anciens Safari : on retombe sur un gain neutre.
+      if (!this.ctx.createStereoPanner) return this.ctx.createGain();
       const p = this.ctx.createStereoPanner();
       p.pan.value = LH.clamp(pan || 0, -1, 1);
       return p;

@@ -7,11 +7,18 @@ des créatures autonomes et des cris qui viennent de partout.
 
 ## Lancer le jeu
 
-**Double-clique simplement sur `index.html`** (aucun serveur, aucune installation, aucun
-accès internet : Three.js est inclus dans `js/lib/`).
+**En ligne :** https://kotikytb.github.io/labyrinth_horror/ (aucune installation, le son
+fonctionne directement dans le navigateur).
+
+**En local :** double-clique simplement sur `index.html` (aucun serveur, aucune
+installation, aucun accès internet : Three.js est inclus dans `js/lib/`).
 
 > 🎧 **Casque fortement recommandé** : les cris et chuchotements sont directionnels
 > (gauche/droite), et l'indicateur à l'écran ne donne que l'angle, pas la distance.
+
+Si le son ne démarre pas (politique anti-autoplay du navigateur), un bandeau
+**ACTIVER LE SON** apparaît en haut à gauche : clique dessus. Tu peux aussi vérifier
+dans **OPTIONS → TESTER LE SON**, et couper/réactiver avec `M`.
 
 Autre option (si ton navigateur bloque le son en `file://`) :
 double-clique sur **`Lancer.bat`** (ouvre un petit serveur local) puis va sur
