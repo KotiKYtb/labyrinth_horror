@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#050505">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23050505'/%3E%3Cpath d='M32 8 56 32 32 56 8 32Z' fill='none' stroke='%239d1218' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23e02b2b'/%3E%3C/svg%3E">
+<title>LABYRINTHE — Ce que tu oublies te dévore</title>
+<meta name="description" content="Jeu d'horreur 3D vue du dessus : explorez un labyrinthe dont vous oubliez les chemins, survivez aux créatures et aux cris.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+
+  <div id="fx-layer" aria-hidden="true">
+    <canvas id="fx"></canvas>
+    <div id="grain"></div>
+    <div id="vignette"></div>
+    <div id="threat"></div>
+    <div id="flash"></div>
+    <div id="scare"><img id="scare-img" alt=""></div>
+  </div>
+
+  <!-- ============================== HUD ============================== -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-lvl">
+        <span id="hud-level">NIVEAU I</span>
+        <strong id="hud-name">LA CAVE</strong>
+        <em id="hud-diff">CALME</em>
+      </div>
+      <div class="hud-center">
+        <div class="hud-timer" id="timer">00:00</div>
+        <div class="hud-objective" id="objective">RELIQUES 0 / 3</div>
+      </div>
+      <div class="hud-buttons">
+        <button id="hud-mute" class="hud-btn" type="button">SON ON</button>
+        <button id="btn-pause" class="hud-btn pause" type="button" aria-label="Pause">II</button>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="hud-left">
+        <div class="hud-block">
+          <span class="hud-label">RELIQUES</span>
+          <div id="relic-track" class="relic-track"></div>
+        </div>
+        <div class="hud-block stamina">
+          <span class="hud-label">SOUFFLE</span>
+          <div class="bar"><i id="stamina-fill"></i></div>
+        </div>
+        <div class="hud-block lamp">
+          <span class="hud-label">LAMPE <em id="lamp-state">ALLUMÉE</em></span>
+          <div class="bar lamp-bar"><i id="lamp-fill"></i></div>
+        </div>
+        <div class="hud-block matches">
+          <span class="hud-label">ALLUMETTES</span>
+          <strong id="match-count">0</strong>
+        </div>
+        <div class="hud-block noise">
+          <span class="hud-label">BRUIT</span>
+          <strong id="noise-state">DISCRET</strong>
+        </div>
+      </div>
+      <div id="hud-hint" class="hud-hint">
+        <span><b>WASD</b> bouger</span>
+        <span><b>MAJ</b> courir</span>
+        <span><b>CTRL</b> s'accroupir</span>
+        <span><b>L</b> lampe</span>
+        <span><b>ÉCHAP</b> pause</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+  <div id="subtitle" class="subtitle"></div>
+
+  <!-- ============================== MENU ============================== -->
+  <div id="menu" class="screen menu-screen">
+    <div class="menu-shade"></div>
+    <div class="menu-inner">
+      <div class="eyebrow">Une descente en aveugle</div>
+      <h1 class="game-title">LABYRINTHE</h1>
+      <p class="tagline">Ce que tu oublies te dévore.</p>
+
+      <div class="menu-actions">
+        <button id="btn-play" class="btn primary" type="button">JOUER</button>
+        <button id="btn-levels" class="btn" type="button">NIVEAUX</button>
+        <button id="btn-howto" class="btn" type="button">COMMENT JOUER</button>
+        <button id="btn-view" class="btn" type="button">VUE : DESSUS</button>
+        <button id="btn-options" class="btn" type="button">OPTIONS</button>
+      </div>
+
+      <button id="btn-sound" class="sound-toggle" type="button">SON : ACTIVÉ</button>
+    </div>
+    <p class="menu-foot">5 niveaux · mémoire instable · créatures autonomes</p>
+    <div class="menu-corner">
+      <span>MMXXVI</span>
+      <span>NE RESTE PAS IMMOBILE</span>
+    </div>
+  </div>
+
+  <!-- ============================== NIVEAUX ============================== -->
+  <div id="levels" class="screen">
+    <div class="panel wide">
+      <button id="btn-levels-back" class="back" type="button">← RETOUR</button>
+      <div class="eyebrow">Sélection</div>
+      <h2>LES CINQ DESCENTES</h2>
+      <p class="panel-intro">Chaque étage possède sa propre géométrie, ses créatures et sa mémoire. Aucune carte ne survit.</p>
+      <div id="level-grid" class="level-grid"></div>
+      <p class="panel-note">La progression et les meilleurs temps sont conservés sur cet appareil.</p>
+    </div>
+  </div>
+
+  <!-- ============================== AIDE ============================== -->
+  <div id="howto" class="screen">
+    <div class="panel wide">
+      <button id="btn-howto-back" class="back" type="button">← RETOUR</button>
+      <div class="eyebrow">Règles</div>
+      <h2>COMMENT SURVIVRE</h2>
+      <div class="howto-grid">
+        <section>
+          <h3><span>01</span> MÉMOIRE</h3>
+          <p>Tout est noir. Chaque pas révèle les murs et le sol autour de toi. Ce que tu vois reste en mémoire quelques secondes, puis se dissout. Reviens sur tes pas pour raviver les lieux — si tu te souviens où ils sont.</p>
+        </section>
+        <section>
+          <h3><span>02</span> LAMPE &amp; BRUIT</h3>
+          <p>Ta lampe s'épuise toute seule. Ramasse des <b>allumettes</b> pour la rallumer, ou éteins-la avec <b>L</b> pour économiser : dans ce cas, seul le clair de lune t'éclaire. Courir use ton souffle et attire les créatures ; s'accroupir (Ctrl) te rend presque silencieux.</p>
+        </section>
+        <section>
+          <h3><span>03</span> OREILLE</h3>
+          <p>Un cri retentit ? Un indicateur apparaît autour de toi et pointe sa direction. Un monstre qui t'a repéré hurle aussi. Écoute. Regarde. Ne confonds pas un cri lointain avec un pas derrière toi.</p>
+        </section>
+        <section>
+          <h3><span>04</span> CRÉATURES</h3>
+          <p>Elles errent librement, sans repos. Elles voient, entendent et poursuivent. Si tu brises leur ligne de vue, elles perdent ta trace, fouillent le dernier endroit où elles t'ont vu, puis repartent. Rien ne les arrête.</p>
+        </section>
+        <section>
+          <h3><span>05</span> RELIQUES</h3>
+          <p>Récupère toutes les reliques pour desceller la sortie. Une pulsation violette signale leur proximité. Une fois la sortie ouverte, une colonne de lumière te guide à travers les murs.</p>
+        </section>
+        <section>
+          <h3><span>06</span> CONTRÔLES</h3>
+          <p class="keys">
+            <b>WASD / ZQSD</b> se déplacer<br>
+            <b>MAJ</b> courir &nbsp;·&nbsp; <b>CTRL / C</b> s'accroupir<br>
+            <b>ÉCHAP / P</b> pause &nbsp;·&nbsp; <b>M</b> son &nbsp;·&nbsp; <b>L</b> lampe<br>
+            <em>Vue 1ʳᵉ personne :</em> <b>souris</b> regarder, <b>Q/E</b> pivoter, <b>R/F</b> lever/baisser la tête.
+          </p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== OPTIONS ============================== -->
+  <div id="options" class="screen">
+    <div class="panel small">
+      <div class="eyebrow">Réglages</div>
+      <h2>OPTIONS</h2>
+      <label class="setting">
+        <span>Volume</span>
+        <input id="volume-range" type="range" min="0" max="100" step="1" value="72">
+      </label>
+      <label class="setting switch">
+        <span>Grain &amp; bruit visuel</span>
+        <input id="grain-toggle" type="checkbox" checked>
+      </label>
+      <label class="setting switch">
+        <span>Secousses d'écran</span>
+        <input id="shake-toggle" type="checkbox" checked>
+      </label>
+      <label class="setting switch">
+        <span>Vue première personne</span>
+        <input id="fp-toggle" type="checkbox">
+      </label>
+      <div class="panel-actions">
+        <button id="btn-reset" class="btn danger" type="button">EFFACER LA PROGRESSION</button>
+        <button id="btn-options-back" class="btn" type="button">← RETOUR</button>
+      </div>
+      <p class="panel-note">Casque recommandé. Certains sons sont directionnels.</p>
+    </div>
+  </div>
+
+  <!-- ============================== INTRO ============================== -->
+  <div id="intro" class="screen intro-screen">
+    <div class="intro-wrap">
+      <div class="intro-left">
+        <div class="eyebrow">Descente <span id="intro-numeral">I</span></div>
+        <h2 id="intro-title">LA CAVE</h2>
+        <p id="intro-sub" class="intro-sub"></p>
+        <p id="intro-story" class="intro-story"></p>
+        <div class="intro-stats">
+          <div><span>DIFFICULTÉ</span><strong id="intro-diff"></strong></div>
+          <div><span>RELIQUES</span><strong id="intro-relics"></strong></div>
+          <div><span>ALLUMETTES</span><strong id="intro-matches"></strong></div>
+          <div><span>CRÉATURES</span><strong id="intro-monsters"></strong></div>
+          <div><span>MÉMOIRE</span><strong id="intro-memory"></strong></div>
+        </div>
+        <p class="intro-objective"><span>OBJECTIF</span><strong id="intro-objective"></strong></p>
+        <div class="intro-actions">
+          <button id="intro-start" class="btn primary" type="button">ENTRER DANS LE LABYRINTHE</button>
+          <button id="intro-back" class="btn ghost" type="button">RETOUR</button>
+        </div>
+        <p class="intro-warning">Le son est essentiel. Mets un casque.</p>
+      </div>
+      <div class="intro-right">
+        <div id="intro-mark" class="intro-mark">I</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== PAUSE ============================== -->
+  <div id="pause" class="screen">
+    <div class="panel small">
+      <div class="eyebrow">Pause</div>
+      <h2>REPRENDRE TON SOUFFLE</h2>
+      <div class="panel-actions column">
+        <button id="btn-resume" class="btn primary" type="button">CONTINUER</button>
+        <button id="btn-pause-options" class="btn" type="button">OPTIONS</button>
+        <button id="btn-pause-restart" class="btn" type="button">RECOMMENCER</button>
+        <button id="btn-pause-quit" class="btn ghost" type="button">ABANDONNER</button>
+      </div>
+      <p class="panel-note">Le labyrinthe attend. Il ne s'impatiente pas.</p>
+    </div>
+  </div>
+
+  <!-- ============================== RÉSULTAT ============================== -->
+  <div id="result" class="screen">
+    <div class="panel result-panel">
+      <div id="result-kicker" class="eyebrow">NIVEAU TERMINÉ</div>
+      <h2 id="result-title" class="result-title">SAUVE</h2>
+      <p id="result-sub" class="result-sub"></p>
+      <div id="result-stats" class="result-stats"></div>
+      <div class="result-actions">
+        <button id="btn-next" class="btn primary" type="button">NIVEAU SUIVANT</button>
+        <button id="btn-retry" class="btn primary" type="button">RÉESSAYER</button>
+        <button id="btn-result-menu" class="btn ghost" type="button">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== FIN ============================== -->
+  <div id="ending" class="screen ending-screen">
+    <div class="ending-wrap">
+      <div class="eyebrow">Labyrinthe — fin</div>
+      <h2>TU ES SORTI.</h2>
+      <p id="ending-text" class="ending-text"></p>
+      <blockquote>« Ce que tu oublies te dévore. »</blockquote>
+      <div class="panel-actions">
+        <button id="btn-ending-menu" class="btn primary" type="button">RETOUR AU MENU</button>
+        <button id="btn-ending-replay" class="btn ghost" type="button">REDESCENDRE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== TACTILE ============================== -->
+  <div id="touch-controls">
+    <div id="touch-stick-base" class="touch-stick-base">
+      <div id="touch-stick" class="touch-stick"></div>
+    </div>
+    <button id="touch-sprint" class="touch-sprint" type="button">COURIR</button>
+  </div>
+</div>
+
+<script src="js/lib/three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/maze.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/world.js"></script>
+<script src="js/monster.js"></script>
+<script src="js/models.js"></script>
+<script src="js/scares.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
